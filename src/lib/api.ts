@@ -53,10 +53,16 @@ export function parseSSEStream(body: string): string {
 // --- Unified Grammar Check ---
 
 import { codexGrammarCheck } from "./providers/codex";
+import { geminiGrammarCheck } from "./providers/gemini";
+
+export function isGeminiModel(model: string): boolean {
+  return model.startsWith("gemini");
+}
 
 export interface CheckGrammarOptions {
   text: string;
   token: string;
+  geminiApiKey?: string;
   model: string;
   prompt: string;
 }
@@ -64,5 +70,18 @@ export interface CheckGrammarOptions {
 export async function checkGrammar(
   options: CheckGrammarOptions,
 ): Promise<string> {
+  if (isGeminiModel(options.model)) {
+    if (!options.geminiApiKey) {
+      throw new Error(
+        "Gemini API key required. Set it in Settings (Cmd+Shift+,).",
+      );
+    }
+    return geminiGrammarCheck({
+      text: options.text,
+      apiKey: options.geminiApiKey,
+      model: options.model,
+      prompt: options.prompt,
+    });
+  }
   return codexGrammarCheck(options);
 }

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-Raycast extension that grammar-checks clipboard text using OpenAI's ChatGPT Codex backend. Authenticates via OAuth PKCE (same flow as Codex CLI), no API keys needed. Supports multiple models with a provider architecture for future expansion (e.g. Gemini).
+Raycast extension that grammar-checks clipboard text using OpenAI or Google Gemini. OpenAI authenticates via OAuth PKCE (same flow as Codex CLI, requires ChatGPT Plus or Pro). Gemini uses a free API key.
 
 ## Commands
 
@@ -25,10 +25,10 @@ bunx vitest run src/lib/__tests__/api.test.ts
 
 ## Linting
 
-`bun run lint` runs three checks in order: package.json validation, ESLint, and Prettier. `bun run fix-lint` auto-fixes what it can. ESLint config is in `eslint.config.js` (flat config using `@raycast/eslint-config`).
+`bun run lint` runs three checks in order: package.json validation, ESLint, and Prettier. `bun run fix-lint` auto-fixes what it can. ESLint config is in `eslint.config.mjs` (flat config using `@raycast/eslint-config`). `raycast-env.d.ts` is excluded from ESLint (auto-generated file).
 
 Git hooks in `.githooks/` (configured via `core.hooksPath`):
-- **pre-commit**: runs `bun run lint` (ESLint + Prettier)
+- **pre-commit**: runs ESLint + Prettier on staged files (excludes `raycast-env.d.ts`)
 - **pre-push**: runs `bun run test`
 
 After cloning, run:
@@ -40,20 +40,24 @@ git config core.hooksPath .githooks
 
 Single-command extension (`check-grammar`) with a provider-based architecture:
 
-- **`src/check-grammar.tsx`** — Main React component. Handles all UI states: auth prompt, loading animation (ASCII art + progress bar), result view with inline diff (LCS-based word diff), history list/detail views. Reads user preferences for model and prompt. Validates clipboard content before making API calls.
-- **`src/lib/oauth.ts`** — OAuth 2.0 PKCE flow against `auth.openai.com`. Spins up a temporary HTTP server on port 1455 (binds to `127.0.0.1`, redirect URI uses `localhost`). Tokens stored in Raycast `LocalStorage` with automatic refresh.
-- **`src/lib/api.ts`** — Shared helpers (JWT decoding, account ID extraction, SSE stream parsing) and unified `checkGrammar()` entry point that routes to the appropriate provider.
+- **`src/check-grammar.tsx`** — Main React component. Handles all UI states: auth prompt, loading animation (ASCII art + progress bar + timer), result view with inline diff (LCS-based word diff), history list/detail views. Reads user preferences for model, prompt, and debug mode. Validates clipboard content before making API calls.
+- **`src/lib/oauth.ts`** — OpenAI OAuth 2.0 PKCE flow against `auth.openai.com`. Spins up a temporary HTTP server on port 1455 (binds to `127.0.0.1`, redirect URI uses `localhost`). Requires ChatGPT Plus or Pro account. Tokens stored in Raycast `LocalStorage` with automatic refresh.
+- **`src/lib/api.ts`** — Shared helpers (JWT decoding, account ID extraction, SSE stream parsing) and unified `checkGrammar()` entry point that routes to the appropriate provider based on model name.
 - **`src/lib/providers/codex.ts`** — ChatGPT Codex backend provider. Calls `chatgpt.com/backend-api/codex/responses` with streaming SSE. Sends `ChatGPT-Account-ID` header extracted from JWT.
-- **`src/lib/providers/gemini.ts`** — Gemini provider placeholder (coming soon).
+- **`src/lib/providers/gemini.ts`** — Google Gemini provider. Calls `generativelanguage.googleapis.com/v1beta` with API key auth and streaming SSE.
+- **`src/lib/providers/openai-constants.ts`** — OpenAI OAuth and API constants (client ID, endpoints, scopes).
+- **`src/lib/providers/gemini-constants.ts`** — Gemini API constants (endpoint URL).
 - **`src/lib/history.ts`** — Persists grammar check history in `LocalStorage`. Max 50 entries, auto-expires after 7 days.
 - **`src/lib/log.ts`** — Debug logging to file in extension support path.
 
 ### Preferences
 
 Defined in `package.json` under `preferences`:
-- **model**: dropdown (gpt-5.4, gpt-5.3-codex, gpt-5.2-codex, gemini)
+- **model**: dropdown with OpenAI models (gpt-5.4 default, plus others) and Gemini models (2.5-flash, 2.5-pro)
 - **prompt**: text field for custom grammar check instruction
+- **geminiApiKey**: password field for Gemini API key (required for Gemini models)
+- **debugMode**: checkbox to use mock responses without API calls
 
 ## Testing
 
-Tests use vitest with `@raycast/api` aliased to a stub at `src/lib/__tests__/__mocks__/raycast-api.ts` (configured in `vitest.config.ts`). Tests that need real `LocalStorage` behavior use `vi.mock` to provide an in-memory store (see `history.test.ts`). Provider tests mock `fetch` globally (see `providers/codex.test.ts`).
+Tests use vitest with `@raycast/api` aliased to a stub at `src/lib/__tests__/__mocks__/raycast-api.ts` (configured in `vitest.config.ts`). Tests that need real `LocalStorage` behavior use `vi.mock` to provide an in-memory store (see `history.test.ts`). Provider tests mock `fetch` globally (see `providers/codex.test.ts`, `providers/gemini.test.ts`).

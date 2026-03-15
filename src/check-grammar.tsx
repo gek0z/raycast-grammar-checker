@@ -18,7 +18,7 @@ import {
   clearTokens,
   getValidToken,
 } from "./lib/oauth";
-import { checkGrammar } from "./lib/api";
+import { checkGrammar, isGeminiModel } from "./lib/api";
 import {
   addHistoryEntry,
   getHistory,
@@ -35,6 +35,12 @@ function wordCount(text: string): number {
 
 function charCount(text: string): number {
   return text.length;
+}
+
+function formatDuration(ms: number): string {
+  if (ms < 1000) return `${ms}ms`;
+  const seconds = (ms / 1000).toFixed(1);
+  return `${seconds}s`;
 }
 
 interface DiffResult {
@@ -128,6 +134,7 @@ function buildMarkdown(
   result: string | null,
   isLoading: boolean,
   frame: number,
+  elapsed: number,
 ): { md: string; corrections: number } {
   if (isLoading) {
     const blockSize = 12;
@@ -162,8 +169,11 @@ function buildMarkdown(
       });
       preview = `\n${top}\n${empty}\n${boxLines.join("\n")}\n${empty}\n${bot}`;
     }
+    const timerText = formatDuration(elapsed);
+    const timerPadded =
+      " ".repeat(Math.max(0, BAR_WIDTH - timerText.length)) + timerText;
     return {
-      md: `\`\`\`\n${ASCII_TITLE}\n\n${bar}${preview}\n\`\`\``,
+      md: `\`\`\`\n${ASCII_TITLE}\n\n${bar}\n${timerPadded}${preview}\n\`\`\``,
       corrections: 0,
     };
   }
@@ -213,6 +223,8 @@ function truncate(text: string, maxLen: number): string {
 interface Preferences {
   model: string;
   prompt: string;
+  geminiApiKey?: string;
+  debugMode?: boolean;
 }
 
 // --- Component ---
@@ -229,21 +241,37 @@ export default function CheckGrammar() {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [selectedEntry, setSelectedEntry] = useState<HistoryEntry | null>(null);
   const [spinnerFrame, setSpinnerFrame] = useState(0);
+  const [elapsedMs, setElapsedMs] = useState(0);
+  const [finalElapsedMs, setFinalElapsedMs] = useState(0);
   const spinnerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const timerStartRef = useRef<number>(0);
+
+  const useGemini = isGeminiModel(prefs.model);
 
   useEffect(() => {
-    getValidToken().then((t) => {
-      setToken(t);
+    if (prefs.debugMode) {
+      setToken("debug");
       setAuthChecked(true);
-    });
+    } else if (useGemini) {
+      setToken(prefs.geminiApiKey || null);
+      setAuthChecked(true);
+    } else {
+      getValidToken().then((t) => {
+        setToken(t);
+        setAuthChecked(true);
+      });
+    }
   }, []);
 
   useEffect(() => {
     if (isLoading) {
+      timerStartRef.current = Date.now();
       spinnerRef.current = setInterval(() => {
         setSpinnerFrame((f) => f + 1);
+        setElapsedMs(Date.now() - timerStartRef.current);
       }, 150);
     } else if (spinnerRef.current) {
+      setFinalElapsedMs(Date.now() - timerStartRef.current);
       clearInterval(spinnerRef.current);
       spinnerRef.current = null;
     }
@@ -258,8 +286,13 @@ export default function CheckGrammar() {
   }, []);
 
   const signIn = useCallback(async () => {
+    if (useGemini) {
+      // Gemini uses API key, open settings
+      openExtensionPreferences();
+      return;
+    }
     setIsAuthenticating(true);
-    log("Sign in started (PKCE flow)");
+    log("Sign in started (OpenAI)");
     try {
       await showToast({
         style: Toast.Style.Animated,
@@ -280,7 +313,7 @@ export default function CheckGrammar() {
     } finally {
       setIsAuthenticating(false);
     }
-  }, []);
+  }, [useGemini]);
 
   const signOut = useCallback(async () => {
     await clearTokens();
@@ -317,21 +350,23 @@ export default function CheckGrammar() {
 
       setOriginal(text);
 
-      if (prefs.model === "gemini") {
-        await showToast({
-          style: Toast.Style.Failure,
-          title: "Gemini support coming soon",
+      let corrected: string;
+      if (prefs.debugMode) {
+        log("Debug mode: using mock response");
+        await new Promise((r) => setTimeout(r, 1500));
+        corrected =
+          text.charAt(0).toUpperCase() +
+          text.slice(1).replace(/\s+/g, " ").trim() +
+          (text.endsWith(".") ? "" : ".");
+      } else {
+        corrected = await checkGrammar({
+          text,
+          token: token!,
+          geminiApiKey: prefs.geminiApiKey,
+          model: prefs.model,
+          prompt: prefs.prompt,
         });
-        setIsLoading(false);
-        return;
       }
-
-      const corrected = await checkGrammar({
-        text,
-        token,
-        model: prefs.model,
-        prompt: prefs.prompt,
-      });
       setResult(corrected);
       await addHistoryEntry(text, corrected);
 
@@ -369,23 +404,37 @@ export default function CheckGrammar() {
   if (authChecked && !token) {
     const loginMarkdown = isAuthenticating
       ? `# Signing in...\n\nA browser window has opened for you to log in.\n\nReturn here once you've completed the login.`
-      : [
-          "# Grammar Checker",
-          "",
-          "Fix grammar, spelling, and punctuation in your clipboard text using OpenAI.",
-          "",
-          "---",
-          "",
-          "### Getting Started",
-          "",
-          "1. Press **Enter** to sign in with your OpenAI account",
-          "2. Copy any text to your clipboard",
-          "3. Run this command to see corrections",
-          "",
-          "---",
-          "",
-          `*Uses your ChatGPT account. No API key needed.*`,
-        ].join("\n");
+      : useGemini
+        ? [
+            "# Grammar Checker",
+            "",
+            "Fix grammar, spelling, and punctuation in your clipboard text using Gemini.",
+            "",
+            "---",
+            "",
+            "### Gemini API Key Required",
+            "",
+            "1. Press **Enter** to open Settings",
+            "2. Paste your Gemini API key (free at [aistudio.google.com/apikey](https://aistudio.google.com/apikey))",
+            "3. Copy any text and run this command",
+          ].join("\n")
+        : [
+            "# Grammar Checker",
+            "",
+            "Fix grammar, spelling, and punctuation in your clipboard text using OpenAI.",
+            "",
+            "---",
+            "",
+            "### Getting Started",
+            "",
+            "1. Press **Enter** to sign in with your OpenAI account",
+            "2. Copy any text to your clipboard",
+            "3. Run this command to see corrections",
+            "",
+            "---",
+            "",
+            "*Requires a ChatGPT Plus or Pro account. No API key needed.*",
+          ].join("\n");
 
     return (
       <Detail
@@ -395,8 +444,8 @@ export default function CheckGrammar() {
           !isAuthenticating ? (
             <ActionPanel>
               <Action
-                title="Sign in with OpenAI"
-                icon={Icon.PersonCircle}
+                title={useGemini ? "Open Settings" : "Sign in with OpenAI"}
+                icon={useGemini ? Icon.Gear : Icon.PersonCircle}
                 onAction={signIn}
               />
             </ActionPanel>
@@ -537,6 +586,7 @@ export default function CheckGrammar() {
     result,
     isLoading,
     spinnerFrame,
+    elapsedMs,
   );
   const hasChanges = corrections > 0;
 
@@ -571,6 +621,10 @@ export default function CheckGrammar() {
             />
             <Detail.Metadata.Separator />
             <Detail.Metadata.Label title="Model" text={prefs.model} />
+            <Detail.Metadata.Label
+              title="Time"
+              text={formatDuration(finalElapsedMs)}
+            />
           </Detail.Metadata>
         ) : undefined
       }
@@ -609,7 +663,7 @@ export default function CheckGrammar() {
             title="Settings"
             icon={Icon.Gear}
             onAction={openExtensionPreferences}
-            shortcut={{ modifiers: ["cmd"], key: "," }}
+            shortcut={{ modifiers: ["cmd", "shift"], key: "," }}
           />
           <Action
             title="Sign out"

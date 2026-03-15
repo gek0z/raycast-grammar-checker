@@ -2,20 +2,15 @@ import { LocalStorage, open } from "@raycast/api";
 import * as http from "node:http";
 import * as crypto from "node:crypto";
 import { log } from "./log";
-
-// --- Config (matching Codex CLI exactly) ---
-
-const CLIENT_ID = "app_EMoamEEZ73f0CkXaXp7hrann";
-const AUTH_BASE = "https://auth.openai.com";
-const AUTHORIZE_URL = `${AUTH_BASE}/oauth/authorize`;
-const TOKEN_URL = `${AUTH_BASE}/oauth/token`;
-const SCOPE = "openid profile email offline_access";
-
-const REDIRECT_PORT = 1455;
-// Codex CLI uses "localhost" NOT "127.0.0.1" - OAuth validates exact string match
-const REDIRECT_URI = `http://localhost:${REDIRECT_PORT}/auth/callback`;
-
-const STORAGE_KEY = "openai_oauth_tokens";
+import {
+  OPENAI_CLIENT_ID,
+  OPENAI_AUTHORIZE_URL,
+  OPENAI_TOKEN_URL,
+  OPENAI_SCOPE,
+  OPENAI_REDIRECT_PORT,
+  OPENAI_REDIRECT_URI,
+  OPENAI_STORAGE_KEY,
+} from "./providers/openai-constants";
 
 export interface StoredTokens {
   accessToken: string;
@@ -26,7 +21,6 @@ export interface StoredTokens {
 // --- PKCE ---
 
 export function generatePKCE() {
-  // Match Codex CLI: 64 random bytes -> base64url (86 chars)
   const bytes = crypto.randomBytes(64);
   const verifier = bytes.toString("base64url");
   const challenge = crypto
@@ -45,12 +39,12 @@ async function exchangeCode(
   const body = new URLSearchParams();
   body.set("grant_type", "authorization_code");
   body.set("code", code);
-  body.set("redirect_uri", REDIRECT_URI);
-  body.set("client_id", CLIENT_ID);
+  body.set("redirect_uri", OPENAI_REDIRECT_URI);
+  body.set("client_id", OPENAI_CLIENT_ID);
   body.set("code_verifier", codeVerifier);
 
-  log(`Token exchange request to ${TOKEN_URL}`);
-  const response = await fetch(TOKEN_URL, {
+  log(`Token exchange request to ${OPENAI_TOKEN_URL}`);
+  const response = await fetch(OPENAI_TOKEN_URL, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: body.toString(),
@@ -82,12 +76,12 @@ async function exchangeCode(
 
 async function refreshAccessToken(refreshToken: string): Promise<StoredTokens> {
   const body = new URLSearchParams();
-  body.set("client_id", CLIENT_ID);
+  body.set("client_id", OPENAI_CLIENT_ID);
   body.set("grant_type", "refresh_token");
   body.set("refresh_token", refreshToken);
   body.set("scope", "openid profile email");
 
-  const response = await fetch(TOKEN_URL, {
+  const response = await fetch(OPENAI_TOKEN_URL, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: body.toString(),
@@ -128,7 +122,10 @@ export function startOAuthFlow(): Promise<StoredTokens> {
     const server = http.createServer(async (req, res) => {
       log(`Callback received: ${req.method} ${req.url}`);
       try {
-        const url = new URL(req.url!, `http://localhost:${REDIRECT_PORT}`);
+        const url = new URL(
+          req.url!,
+          `http://localhost:${OPENAI_REDIRECT_PORT}`,
+        );
 
         if (url.pathname === "/cancel") {
           log("Received cancel request");
@@ -199,15 +196,14 @@ export function startOAuthFlow(): Promise<StoredTokens> {
       reject(err);
     });
 
-    // Bind to 127.0.0.1 (IPv4) - the redirect URI says "localhost" but the browser resolves it to 127.0.0.1
-    server.listen(REDIRECT_PORT, "127.0.0.1", () => {
-      log(`Server listening on localhost:${REDIRECT_PORT}`);
+    server.listen(OPENAI_REDIRECT_PORT, "127.0.0.1", () => {
+      log(`Server listening on localhost:${OPENAI_REDIRECT_PORT}`);
 
-      const authUrl = new URL(AUTHORIZE_URL);
-      authUrl.searchParams.set("client_id", CLIENT_ID);
-      authUrl.searchParams.set("redirect_uri", REDIRECT_URI);
+      const authUrl = new URL(OPENAI_AUTHORIZE_URL);
+      authUrl.searchParams.set("client_id", OPENAI_CLIENT_ID);
+      authUrl.searchParams.set("redirect_uri", OPENAI_REDIRECT_URI);
       authUrl.searchParams.set("response_type", "code");
-      authUrl.searchParams.set("scope", SCOPE);
+      authUrl.searchParams.set("scope", OPENAI_SCOPE);
       authUrl.searchParams.set("code_challenge", challenge);
       authUrl.searchParams.set("code_challenge_method", "S256");
       authUrl.searchParams.set("state", state);
@@ -231,15 +227,15 @@ export function startOAuthFlow(): Promise<StoredTokens> {
 // --- Token Storage ---
 
 export async function storeTokens(tokens: StoredTokens): Promise<void> {
-  await LocalStorage.setItem(STORAGE_KEY, JSON.stringify(tokens));
+  await LocalStorage.setItem(OPENAI_STORAGE_KEY, JSON.stringify(tokens));
 }
 
 export async function clearTokens(): Promise<void> {
-  await LocalStorage.removeItem(STORAGE_KEY);
+  await LocalStorage.removeItem(OPENAI_STORAGE_KEY);
 }
 
 export async function getValidToken(): Promise<string | null> {
-  const raw = await LocalStorage.getItem<string>(STORAGE_KEY);
+  const raw = await LocalStorage.getItem<string>(OPENAI_STORAGE_KEY);
   if (!raw) return null;
   const tokens = JSON.parse(raw) as StoredTokens;
 
@@ -253,7 +249,7 @@ export async function getValidToken(): Promise<string | null> {
       await storeTokens(refreshed);
       return refreshed.accessToken;
     } catch {
-      await LocalStorage.removeItem(STORAGE_KEY);
+      await LocalStorage.removeItem(OPENAI_STORAGE_KEY);
       return null;
     }
   }

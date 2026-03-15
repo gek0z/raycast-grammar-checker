@@ -1,7 +1,6 @@
 import { log } from "../log";
 import { extractAccountId, parseSSEStream } from "../api";
-
-const CHATGPT_API_URL = "https://chatgpt.com/backend-api/codex/responses";
+import { CHATGPT_API_URL } from "./openai-constants";
 
 export interface CodexOptions {
   text: string;
