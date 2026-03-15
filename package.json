@@ -4,7 +4,7 @@
   "title": "Grammar Checker",
   "description": "Grammar check your clipboard text using OpenAI or Gemini",
   "icon": "icon.png",
-  "author": "riccardo",
+  "author": "riccardo_altieri",
   "categories": ["Productivity"],
   "license": "MIT",
   "platforms": ["macOS"],
