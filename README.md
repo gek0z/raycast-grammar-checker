@@ -25,7 +25,6 @@ Open settings with `Cmd + Shift + ,` from within the extension.
 | **Model** | Choose between OpenAI models (GPT-5.4, etc.) or Gemini models (2.5 Flash, 2.5 Pro) |
 | **Grammar Check Prompt** | Customize the instruction sent to the model |
 | **Gemini API Key** | Required when using Gemini models |
-| **Debug Mode** | Use mock responses for development (no API calls) |
 
 ## Authentication
 
@@ -61,7 +60,11 @@ git config core.hooksPath .githooks
 bun run dev
 ```
 
-Enable **Debug Mode** in Settings to use mock responses without making API calls.
+To run with mock API responses (no real calls):
+
+```bash
+bun run dev:mock
+```
 
 Git hooks run automatically:
 - **pre-commit**: ESLint + Prettier on staged files

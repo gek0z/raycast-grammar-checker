@@ -48,15 +48,6 @@
       "type": "password",
       "required": false,
       "placeholder": "AIza..."
-    },
-    {
-      "name": "debugMode",
-      "title": "Debug Mode",
-      "description": "Use mock API responses instead of real calls (for development)",
-      "type": "checkbox",
-      "required": false,
-      "default": false,
-      "label": "Enable debug mode"
     }
   ],
   "commands": [
@@ -82,7 +73,8 @@
   },
   "scripts": {
     "build": "ray build -e dist",
-    "dev": "ray develop",
+    "dev": "rm -f ~/.config/raycast/extensions/grammar-checker/.mock && ray develop",
+    "dev:mock": "touch ~/.config/raycast/extensions/grammar-checker/.mock && ray develop",
     "fix-lint": "ray lint --fix",
     "lint": "ray lint",
     "publish": "ray publish",

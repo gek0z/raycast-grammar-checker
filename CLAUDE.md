@@ -11,6 +11,7 @@ Raycast extension that grammar-checks clipboard text using OpenAI or Google Gemi
 ```bash
 bun install          # Install dependencies
 bun run dev          # Start Raycast development mode
+bun run dev:mock     # Dev mode with mock API responses (no real calls)
 bun run build        # Build for production
 bun run lint         # Lint
 bun run fix-lint     # Lint with auto-fix
@@ -40,7 +41,7 @@ git config core.hooksPath .githooks
 
 Single-command extension (`check-grammar`) with a provider-based architecture:
 
-- **`src/check-grammar.tsx`** — Main React component. Handles all UI states: auth prompt, loading animation (ASCII art + progress bar + timer), result view with inline diff (LCS-based word diff), history list/detail views. Reads user preferences for model, prompt, and debug mode. Validates clipboard content before making API calls.
+- **`src/check-grammar.tsx`** — Main React component. Handles all UI states: auth prompt, loading animation (ASCII art + progress bar + timer), result view with inline diff (LCS-based word diff), history list/detail views. Reads user preferences for model and prompt. Supports mock mode via `.mock` file. Validates clipboard content before making API calls.
 - **`src/lib/oauth.ts`** — OpenAI OAuth 2.0 PKCE flow against `auth.openai.com`. Spins up a temporary HTTP server on port 1455 (binds to `127.0.0.1`, redirect URI uses `localhost`). Requires ChatGPT Plus or Pro account. Tokens stored in Raycast `LocalStorage` with automatic refresh.
 - **`src/lib/api.ts`** — Shared helpers (JWT decoding, account ID extraction, SSE stream parsing) and unified `checkGrammar()` entry point that routes to the appropriate provider based on model name.
 - **`src/lib/providers/codex.ts`** — ChatGPT Codex backend provider. Calls `chatgpt.com/backend-api/codex/responses` with streaming SSE. Sends `ChatGPT-Account-ID` header extracted from JWT.
@@ -56,7 +57,8 @@ Defined in `package.json` under `preferences`:
 - **model**: dropdown with OpenAI models (gpt-5.4 default, plus others) and Gemini models (2.5-flash, 2.5-pro)
 - **prompt**: text field for custom grammar check instruction
 - **geminiApiKey**: password field for Gemini API key (required for Gemini models)
-- **debugMode**: checkbox to use mock responses without API calls
+
+Mock API mode is enabled via `bun run dev:mock` (creates a `.mock` file in the Raycast extension directory). Skips auth and returns mock corrections. `bun run dev` cleans it up automatically.
 
 ## Testing
 

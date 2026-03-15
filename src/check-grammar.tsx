@@ -12,6 +12,8 @@ import {
   openExtensionPreferences,
 } from "@raycast/api";
 import { useEffect, useState, useCallback, useRef } from "react";
+import * as fs from "node:fs";
+import * as path from "node:path";
 import {
   startOAuthFlow,
   storeTokens,
@@ -26,6 +28,19 @@ import {
   HistoryEntry,
 } from "./lib/history";
 import { log } from "./lib/log";
+
+// --- Mock Mode ---
+// Create a .mock file in the project root to enable mock API responses.
+// Usage: touch .mock && bun run dev (remove with: rm .mock)
+
+function isMockMode(): boolean {
+  try {
+    const mockPath = path.join(__dirname, ".mock");
+    return fs.existsSync(mockPath);
+  } catch {
+    return false;
+  }
+}
 
 // --- Helpers ---
 
@@ -224,7 +239,6 @@ interface Preferences {
   model: string;
   prompt: string;
   geminiApiKey?: string;
-  debugMode?: boolean;
 }
 
 // --- Component ---
@@ -249,7 +263,8 @@ export default function CheckGrammar() {
   const useGemini = isGeminiModel(prefs.model);
 
   useEffect(() => {
-    if (prefs.debugMode) {
+    if (isMockMode()) {
+      log("Mock mode enabled");
       setToken("debug");
       setAuthChecked(true);
     } else if (useGemini) {
@@ -351,8 +366,8 @@ export default function CheckGrammar() {
       setOriginal(text);
 
       let corrected: string;
-      if (prefs.debugMode) {
-        log("Debug mode: using mock response");
+      if (isMockMode()) {
+        log("Mock mode: returning mock response (1.5s delay)");
         await new Promise((r) => setTimeout(r, 1500));
         corrected =
           text.charAt(0).toUpperCase() +

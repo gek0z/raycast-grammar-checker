@@ -13,9 +13,7 @@ type ExtensionPreferences = {
   /** Grammar Check Prompt - Custom instruction for the grammar checker. The text to check is sent as the user message. */
   "prompt": string,
   /** Gemini API Key - Required for Gemini models. Get a free key at https://aistudio.google.com/apikey */
-  "geminiApiKey"?: string,
-  /** Debug Mode - Use mock API responses instead of real calls (for development) */
-  "debugMode": boolean
+  "geminiApiKey"?: string
 }
 
 /** Preferences accessible in all the extension's commands */
