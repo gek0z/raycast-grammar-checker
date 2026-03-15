@@ -2,7 +2,7 @@
   "$schema": "https://www.raycast.com/schemas/extension.json",
   "name": "grammar-checker",
   "title": "Grammar Checker",
-  "description": "Check and fix grammar in your clipboard text using OpenAI",
+  "description": "Grammar check your clipboard text using OpenAI or Gemini",
   "icon": "icon.png",
   "author": "riccardo",
   "categories": ["Productivity"],
@@ -54,6 +54,7 @@
     {
       "name": "check-grammar",
       "title": "Check Grammar",
+      "subtitle": "Grammar Checker",
       "description": "Grammar check text from your clipboard",
       "mode": "view"
     }
