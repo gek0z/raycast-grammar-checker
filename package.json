@@ -1,0 +1,66 @@
+{
+  "$schema": "https://www.raycast.com/schemas/extension.json",
+  "name": "grammar-checker",
+  "title": "Grammar Checker",
+  "description": "Check and fix grammar in your clipboard text using OpenAI",
+  "icon": "icon.png",
+  "author": "riccardo",
+  "categories": ["Productivity"],
+  "license": "MIT",
+  "platforms": ["macOS"],
+  "preferences": [
+    {
+      "name": "model",
+      "title": "Model",
+      "description": "The AI model to use for grammar checking",
+      "type": "dropdown",
+      "required": false,
+      "default": "gpt-5.4",
+      "data": [
+        { "title": "GPT-5.4 (recommended)", "value": "gpt-5.4" },
+        { "title": "GPT-5.3 Codex", "value": "gpt-5.3-codex" },
+        { "title": "GPT-5.2 Codex", "value": "gpt-5.2-codex" },
+        { "title": "Gemini (coming soon)", "value": "gemini" }
+      ]
+    },
+    {
+      "name": "prompt",
+      "title": "Grammar Check Prompt",
+      "description": "Custom instruction for the grammar checker. The text to check is sent as the user message.",
+      "type": "textfield",
+      "required": false,
+      "default": "Grammar check. Return only the corrected text, nothing else.",
+      "placeholder": "Grammar check. Return only the corrected text, nothing else."
+    }
+  ],
+  "commands": [
+    {
+      "name": "check-grammar",
+      "title": "Check Grammar",
+      "description": "Grammar check text from your clipboard",
+      "mode": "view"
+    }
+  ],
+  "dependencies": {
+    "@raycast/api": "^1.103.0",
+    "@raycast/utils": "^2.2.2"
+  },
+  "devDependencies": {
+    "@raycast/eslint-config": "^2.1.1",
+    "@types/node": "^22.19.1",
+    "@types/react": "^19.2.7",
+    "eslint": "^9.39.1",
+    "prettier": "^3.7.3",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.0"
+  },
+  "scripts": {
+    "build": "ray build -e dist",
+    "dev": "ray develop",
+    "fix-lint": "ray lint --fix",
+    "lint": "ray lint",
+    "publish": "ray publish",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  }
+}
