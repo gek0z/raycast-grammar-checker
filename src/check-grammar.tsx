@@ -286,7 +286,8 @@ export default function CheckGrammar() {
     try {
       await showToast({
         style: Toast.Style.Animated,
-        title: "Opening OpenAI login...",
+        title: "Signing in...",
+        message: "Complete login in browser, then return here",
       });
       const tokens = await startOAuthFlow();
       await storeTokens(tokens);
@@ -295,11 +296,20 @@ export default function CheckGrammar() {
       await showToast({ style: Toast.Style.Success, title: "Signed in!" });
     } catch (error) {
       log(`Sign in failed: ${error}`);
-      await showToast({
-        style: Toast.Style.Failure,
-        title: "Sign in failed",
-        message: String(error),
-      });
+      const msg = String(error);
+      if (msg.includes("timed out") || msg.includes("ECONNREFUSED")) {
+        await showToast({
+          style: Toast.Style.Failure,
+          title: "Sign in failed",
+          message: "Try again quickly. Don't close Raycast while signing in.",
+        });
+      } else {
+        await showToast({
+          style: Toast.Style.Failure,
+          title: "Sign in failed",
+          message: String(error),
+        });
+      }
     } finally {
       setIsAuthenticating(false);
     }
@@ -391,7 +401,7 @@ export default function CheckGrammar() {
   // --- Not authenticated ---
   if (authChecked && !token) {
     const loginMarkdown = isAuthenticating
-      ? `# Signing in...\n\nA browser window has opened for you to log in.\n\nReturn here once you've completed the login.`
+      ? `# Signing in...\n\nA browser window has opened for you to log in.\n\nComplete the login quickly and return here.\n\n*Keep Raycast open in the background while signing in.*`
       : useGemini
         ? [
             "# Grammar Checker",
