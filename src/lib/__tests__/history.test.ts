@@ -88,6 +88,12 @@ describe("getHistory", () => {
     const history = await getHistory();
     expect(history).toHaveLength(50);
   });
+
+  it("returns empty array for corrupted storage", async () => {
+    store["grammar_check_history"] = "not valid json{{{";
+    const history = await getHistory();
+    expect(history).toEqual([]);
+  });
 });
 
 describe("addHistoryEntry", () => {

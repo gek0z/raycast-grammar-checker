@@ -15,8 +15,12 @@ export interface HistoryEntry {
 export async function getHistory(): Promise<HistoryEntry[]> {
   const raw = await LocalStorage.getItem<string>(HISTORY_KEY);
   if (!raw) return [];
-  const entries = JSON.parse(raw) as HistoryEntry[];
-  return cleanup(entries);
+  try {
+    const entries = JSON.parse(raw) as HistoryEntry[];
+    return cleanup(entries);
+  } catch {
+    return [];
+  }
 }
 
 export async function addHistoryEntry(
