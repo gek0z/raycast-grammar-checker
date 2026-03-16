@@ -616,7 +616,7 @@ export default function CheckGrammar() {
             shortcut={{ modifiers: ["cmd", "shift"], key: "," }}
           />
           <Action
-            title="Sign out"
+            title="Sign Out"
             icon={Icon.Logout}
             onAction={signOut}
             shortcut={{ modifiers: ["cmd", "shift"], key: "o" }}
